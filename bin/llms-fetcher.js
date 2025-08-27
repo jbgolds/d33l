@@ -2,7 +2,7 @@
 'use strict';
 
 const path = require('path');
-const { resolveConfig, startDailyScheduler, saveLlmsTextToFile } = require('../src/index');
+const { resolveConfig, startDailyScheduler, saveLlmsTextToFile, ensureFreshLlmsFile } = require('../src/index');
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -16,6 +16,8 @@ function parseArgs(argv) {
     else if (a === '--user-agent') cli.userAgent = args[++i];
     else if (a === '--timeout-ms') cli.timeoutMs = args[++i];
     else if (a === '--dry-run') cli.dryRun = true;
+    else if (a === '--interval-hours') cli.intervalHours = args[++i];
+    else if (a === '--ttl-hours') cli.ttlHours = args[++i];
     else if (a === 'run' || a === 'watch' || a === 'help' || a === '--help' || a === '-h') cli._.push(a);
     else if (a.startsWith('-')) {
       console.error(`Unknown flag: ${a}`);
@@ -31,8 +33,9 @@ function printHelp() {
   console.log(`llms-fetcher - fetch and save llms.txt daily
 
 Usage:
-  llms-fetcher run [--public-url <url>] [--output-dir <dir>] [--output-file <name>]
-  llms-fetcher watch [--run-at HH:MM] [--public-url <url>] [--output-dir <dir>] [--output-file <name>]
+  llms-fetcher run [--public-url <url>] [--output-dir <dir>] [--output-file <name>] [--ttl-hours N]
+  llms-fetcher ensure [--public-url <url>] [--output-dir <dir>] [--output-file <name>] [--ttl-hours N]
+  llms-fetcher watch [--run-at HH:MM | --interval-hours N] [--public-url <url>] [--output-dir <dir>] [--output-file <name>]
 
 Config sources (by precedence): flags > env > package.json llmsFetcher > defaults
 
@@ -48,7 +51,7 @@ async function main() {
     process.exit(0);
   }
 
-  const mode = cli._.find((v) => v === 'run' || v === 'watch') || 'run';
+  const mode = cli._.find((v) => v === 'run' || v === 'watch' || v === 'ensure') || 'run';
   const config = resolveConfig({ cli });
   if (!config.publicUrl) {
     console.error('Error: publicUrl is required. Pass --public-url or set LLMS_PUBLIC_URL or package.json llmsFetcher.publicUrl');
@@ -65,7 +68,16 @@ async function main() {
     }
   })();
 
-  if (mode === 'run') {
+  if (mode === 'ensure') {
+    try {
+      const savedPath = await ensureFreshLlmsFile(config, console);
+      console.log(`Ensured fresh llms.txt at ${savedPath}`);
+      process.exit(0);
+    } catch (err) {
+      console.error(`llms-fetcher ensure error: ${err && err.message}`);
+      process.exit(1);
+    }
+  } else if (mode === 'run') {
     if (cli.dryRun) {
       console.log(`Dry run: would fetch ${sourceUrl} -> ${path.resolve(process.cwd(), config.outputDir, config.outputFile)}`);
       process.exit(0);

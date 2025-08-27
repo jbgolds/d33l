@@ -94,8 +94,10 @@ Flags:
 - `--output-dir, -o`
 - `--output-file, -f`
 - `--run-at, -t` (HH:MM 24h)
+- `--interval-hours` (number; immediate run + every N hours)
 - `--user-agent`
 - `--timeout-ms`
+- `--ttl-hours` (serverless freshness TTL)
 - `--dry-run` (for `run` mode)
 
 ## Usage
@@ -110,6 +112,8 @@ npx llms-fetcher run --public-url https://example.com
 
 ```bash
 npx llms-fetcher watch --public-url https://example.com --run-at 02:00
+# or interval-based
+npx llms-fetcher watch --public-url https://example.com --interval-hours 6
 ```
 
 ### Programmatic API
@@ -128,6 +132,25 @@ await saveLlmsTextToFile({
   userAgent: cfg.userAgent,
   timeoutMs: cfg.timeoutMs,
 });
+```
+
+### Serverless-friendly on-demand freshness
+
+Use `ensure` (CLI) or `ensureFreshLlmsFile` (API) to lazily refresh the file based on TTL and conditional requests. This avoids long-running timers and works in serverless environments.
+
+CLI (call at a safe point in your request/cron):
+
+```bash
+npx llms-fetcher ensure --public-url https://example.com --ttl-hours 12
+```
+
+API (e.g., at the start of a route handler):
+
+```js
+const { resolveConfig, ensureFreshLlmsFile } = require('llms-fetcher');
+const cfg = resolveConfig();
+await ensureFreshLlmsFile(cfg);
+// then read from `${cfg.outputDir}/${cfg.outputFile}`
 ```
 
 ## Notes
