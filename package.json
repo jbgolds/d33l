@@ -7,6 +7,10 @@
     "llms-fetcher": "bin/llms-fetcher.js"
   },
   "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./register": "./src/register.js"
+  },
   "type": "commonjs",
   "engines": {
     "node": ">=16.0.0"

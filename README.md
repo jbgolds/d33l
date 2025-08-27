@@ -40,6 +40,39 @@ Options can come from (highest precedence first):
 }
 ```
 
+## Zero-commands autostart (recommended)
+
+If you want it fully automatic after configuration:
+
+- Use Node preload once (no code changes): set environment var in your process manager
+
+```bash
+NODE_OPTIONS="--require llms-fetcher/register" node server.js
+```
+
+or configure it in your hosting platform's env config.
+
+- Or add a one-line import in your server entry:
+
+```js
+require('llms-fetcher/register');
+```
+
+This starts the scheduler at runtime and keeps it live. By default it runs daily at `runAt`. To use interval-based scheduling instead, set:
+
+```bash
+LLMS_INTERVAL_HOURS=6
+```
+
+Disable autostart when needed:
+
+```bash
+LLMS_AUTOSTART_DISABLE=true
+```
+
+Notes:
+- Autostart requires a long-running Node process. For fully serverless (short-lived) environments, prefer running the one-off command via a platform scheduler.
+
 ### Environment
 
 - `LLMS_PUBLIC_URL`

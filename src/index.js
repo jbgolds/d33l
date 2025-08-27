@@ -24,7 +24,10 @@ function resolveConfig({ cli = {} } = {}) {
   const userAgent = cli.userAgent || env.LLMS_USER_AGENT || (pkgCfg && pkgCfg.userAgent) || 'llms-fetcher/0.1';
   const timeoutMs = Number(cli.timeoutMs || env.LLMS_TIMEOUT_MS || (pkgCfg && pkgCfg.timeoutMs) || 20000);
 
-  return { publicUrl, outputDir, outputFile, runAt, userAgent, timeoutMs };
+  // Optional interval-based scheduling (in hours). If provided (> 0), it takes precedence over runAt.
+  const intervalHours = Number(cli.intervalHours || env.LLMS_INTERVAL_HOURS || (pkgCfg && pkgCfg.intervalHours) || 0);
+
+  return { publicUrl, outputDir, outputFile, runAt, userAgent, timeoutMs, intervalHours };
 }
 
 function readPackageConfig() {
@@ -116,7 +119,7 @@ function msUntilNextRunAt(runAt) {
 }
 
 function startDailyScheduler(config, log = console) {
-  const { publicUrl, outputDir, outputFile, runAt, userAgent, timeoutMs } = config;
+  const { publicUrl, outputDir, outputFile, runAt, userAgent, timeoutMs, intervalHours } = config;
   if (!publicUrl) {
     throw new Error('publicUrl is required');
   }
@@ -137,16 +140,22 @@ function startDailyScheduler(config, log = console) {
     }
   }
 
-  function scheduleNext() {
-    const delay = msUntilNextRunAt(runAt);
-    setTimeout(async () => {
-      await runOnce();
-      // After running, schedule next in 24h
-      setInterval(runOnce, 24 * 60 * 60 * 1000);
-    }, delay);
+  if (Number.isFinite(intervalHours) && intervalHours > 0) {
+    // Interval-based scheduling: run immediately, then every intervalHours
+    runOnce();
+    const intervalMs = Math.max(1, Math.floor(intervalHours * 60 * 60 * 1000));
+    setInterval(runOnce, intervalMs);
+  } else {
+    function scheduleNext() {
+      const delay = msUntilNextRunAt(runAt);
+      setTimeout(async () => {
+        await runOnce();
+        // After running, schedule next in 24h
+        setInterval(runOnce, 24 * 60 * 60 * 1000);
+      }, delay);
+    }
+    scheduleNext();
   }
-
-  scheduleNext();
   return { runOnce };
 }
 
